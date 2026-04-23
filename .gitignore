@@ -25,17 +25,10 @@ ENV/
 *.swo
 
 # ========================
-# Data (VERY IMPORTANT)
+# Data
 # ========================
-data/
-*.csv
-*.txt
-*.parquet
-*.feather
-
-# 如果你想保留data目录结构：
-# data/*
-# !data/.gitkeep
+data/*
+!data/.gitkeep
 
 # ========================
 # Model & Checkpoints
