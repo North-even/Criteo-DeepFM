@@ -1,0 +1,14 @@
+model=FM
+hash_size=1000000
+embed_dim=16
+batch_size=1024
+lr=0.0001
+epochs=3
+
+epoch=1, train_loss=0.461784, valid_auc=0.794356, valid_logloss=0.456287
+epoch=2, train_loss=0.446343, valid_auc=0.796230, valid_logloss=0.454653
+epoch=3, train_loss=0.438173, valid_auc=0.795854, valid_logloss=0.455259
+
+Training finished.
+Best epoch: 2
+Best valid AUC: 0.796230

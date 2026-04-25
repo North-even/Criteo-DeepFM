@@ -1,0 +1,9 @@
+model=LR
+hash_size=1000000
+batch_size=1024
+lr=0.001
+epochs=3
+
+epoch=1, train_loss=0.596085, valid_auc=0.743737, valid_logloss=0.530100
+epoch=2, train_loss=0.506914, valid_auc=0.754536, valid_logloss=0.509210
+epoch=3, train_loss=0.487623, valid_auc=0.759307, valid_logloss=0.500479
