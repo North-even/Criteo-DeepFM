@@ -35,14 +35,12 @@ data/*
 # ========================
 notebooks/*
 
-# ========================
 # Model & Checkpoints
-# ========================
+/models/
 *.pt
 *.pth
 *.ckpt
 checkpoints/
-models/
 
 # ========================
 # Logs

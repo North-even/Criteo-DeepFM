@@ -14,9 +14,14 @@ from src.models.fm import FMModel
 from src.utils.metrics import compute_auc, compute_logloss
 
 
-def evaluate(model, data_path, hash_size, batch_size):
+def evaluate(model, data_path, hash_size, batch_size, device):
     dataset = CTRDataset(str(data_path), hash_size=hash_size)
-    loader = DataLoader(dataset, batch_size=batch_size, num_workers=0)
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        num_workers=0,
+        pin_memory=torch.cuda.is_available()
+    )
 
     model.eval()
 
@@ -25,11 +30,15 @@ def evaluate(model, data_path, hash_size, batch_size):
 
     with torch.no_grad():
         for y, dense, sparse in tqdm(loader, desc="Evaluating"):
+            y = y.to(device, non_blocking=True)
+            dense = dense.to(device, non_blocking=True)
+            sparse = sparse.to(device, non_blocking=True)
+
             logits = model(dense, sparse)
             pred = torch.sigmoid(logits)
 
-            all_y.extend(y.numpy().tolist())
-            all_pred.extend(pred.numpy().tolist())
+            all_y.extend(y.detach().cpu().numpy().tolist())
+            all_pred.extend(pred.detach().cpu().numpy().tolist())
 
     auc = compute_auc(all_y, all_pred)
     logloss = compute_logloss(all_y, all_pred)
@@ -38,12 +47,16 @@ def evaluate(model, data_path, hash_size, batch_size):
 
 
 def train():
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
     data_dir = project_root / "data" / "processed" / "criteo_split"
     train_path = data_dir / "train.txt"
     valid_path = data_dir / "valid.txt"
 
     hash_size = 1_000_000
-    embed_dim = 16
+    embed_dim = 8
     batch_size = 1024
     lr = 1e-4
     epochs = 3
@@ -55,14 +68,15 @@ def train():
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        num_workers=0
+        num_workers=0,
+        pin_memory=torch.cuda.is_available()
     )
 
     model = FMModel(
         hash_size=hash_size,
         num_dense=13,
         embed_dim=embed_dim
-    )
+    ).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
@@ -75,6 +89,7 @@ def train():
     with open(log_path, "w", encoding="utf-8") as log_file:
         log_file.write(
             f"model=FM\n"
+            f"device={device}\n"
             f"hash_size={hash_size}\n"
             f"embed_dim={embed_dim}\n"
             f"batch_size={batch_size}\n"
@@ -91,6 +106,10 @@ def train():
             progress = tqdm(train_loader, desc=f"Epoch {epoch}")
 
             for step, (y, dense, sparse) in enumerate(progress):
+                y = y.to(device, non_blocking=True)
+                dense = dense.to(device, non_blocking=True)
+                sparse = sparse.to(device, non_blocking=True)
+
                 logits = model(dense, sparse)
                 loss = criterion(logits, y)
 
@@ -103,13 +122,15 @@ def train():
 
                 if step % 100 == 0:
                     progress.set_postfix(loss=f"{loss.item():.4f}")
+
             avg_train_loss = total_loss / total_steps
 
             valid_auc, valid_logloss = evaluate(
                 model=model,
                 data_path=valid_path,
                 hash_size=hash_size,
-                batch_size=batch_size
+                batch_size=batch_size,
+                device=device
             )
 
             msg = (

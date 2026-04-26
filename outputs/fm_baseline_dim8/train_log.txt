@@ -1,0 +1,15 @@
+model=FM
+device=cuda
+hash_size=1000000
+embed_dim=8
+batch_size=1024
+lr=0.0001
+epochs=3
+
+epoch=1, train_loss=0.463419, valid_auc=0.792240, valid_logloss=0.458085
+epoch=2, train_loss=0.449955, valid_auc=0.794169, valid_logloss=0.456439
+epoch=3, train_loss=0.444160, valid_auc=0.794532, valid_logloss=0.456261
+
+Training finished.
+Best epoch: 3
+Best valid AUC: 0.794532

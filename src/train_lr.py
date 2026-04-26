@@ -14,7 +14,7 @@ from src.models.lr import LRModel
 from src.utils.metrics import compute_auc, compute_logloss
 
 
-def evaluate(model, data_path, hash_size, batch_size):
+def evaluate(model, data_path, hash_size, batch_size, device):
     dataset = CTRDataset(str(data_path), hash_size=hash_size)
     loader = DataLoader(dataset, batch_size=batch_size, num_workers=0)
 
@@ -25,11 +25,15 @@ def evaluate(model, data_path, hash_size, batch_size):
 
     with torch.no_grad():
         for y, dense, sparse in tqdm(loader, desc="Evaluating"):
+            y = y.to(device)
+            dense = dense.to(device)
+            sparse = sparse.to(device)
+
             logits = model(dense, sparse)
             pred = torch.sigmoid(logits)
 
-            all_y.extend(y.numpy().tolist())
-            all_pred.extend(pred.numpy().tolist())
+            all_y.extend(y.detach().cpu().numpy().tolist())
+            all_pred.extend(pred.detach().cpu().numpy().tolist())
 
     auc = compute_auc(all_y, all_pred)
     logloss = compute_logloss(all_y, all_pred)
@@ -38,6 +42,10 @@ def evaluate(model, data_path, hash_size, batch_size):
 
 
 def train():
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
     data_dir = project_root / "data" / "processed" / "criteo_split"
     train_path = data_dir / "train.txt"
     valid_path = data_dir / "valid.txt"
@@ -54,10 +62,11 @@ def train():
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        num_workers=0
+        num_workers=0,
+        pin_memory=torch.cuda.is_available()
     )
 
-    model = LRModel(hash_size=hash_size)
+    model = LRModel(hash_size=hash_size).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
@@ -69,6 +78,7 @@ def train():
     with open(log_path, "w", encoding="utf-8") as log_file:
         log_file.write(
             f"model=LR\n"
+            f"device={device}\n"
             f"hash_size={hash_size}\n"
             f"batch_size={batch_size}\n"
             f"lr={lr}\n"
@@ -84,6 +94,10 @@ def train():
             progress = tqdm(train_loader, desc=f"Epoch {epoch}")
 
             for step, (y, dense, sparse) in enumerate(progress):
+                y = y.to(device, non_blocking=True)
+                dense = dense.to(device, non_blocking=True)
+                sparse = sparse.to(device, non_blocking=True)
+
                 logits = model(dense, sparse)
                 loss = criterion(logits, y)
 
@@ -103,7 +117,8 @@ def train():
                 model=model,
                 data_path=valid_path,
                 hash_size=hash_size,
-                batch_size=batch_size
+                batch_size=batch_size,
+                device=device
             )
 
             msg = (
